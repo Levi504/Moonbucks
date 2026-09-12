@@ -1,0 +1,6 @@
+﻿*.class
+.vscode
+*.txt
+Thumbs.db
+desktop.ini
+.DS_Store
