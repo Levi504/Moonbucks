@@ -1,10 +1,15 @@
 package main;
 
-import model.Customer;
+import model.OrderItem;
+import model.Product;
 
 public class Tests{
    public static void main(String[] args) {
-      Customer c1 = new Customer("C001", "Levi", "110 Rue CDG 92100", "+33 6 85 45 76 32");
-      System.out.println("Adresse client: " + c1.getCustomerAddress());
+      Product p1 = new Product("P001", "Capuccino", 9.99);
+      OrderItem ot1 = new OrderItem(p1, "Or.001", 3);
+      System.out.println("Votre Commande: " +
+                        ot1.getProduct().getProductName() + " " + 
+                        ot1.getOrderID() + " " + 
+                        ot1.getQuantity());
    }
 }
