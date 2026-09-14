@@ -1,10 +1,10 @@
 package main;
 
-import model.Product;
+import model.Customer;
 
-public class TestProduct{
+public class Tests{
    public static void main(String[] args) {
-      Product p1 = new Product("P001", "Capuccino", 9.99);
-      System.out.println("Prix du produit: " + p1.getProductRate());
+      Customer c1 = new Customer("C001", "Levi", "110 Rue CDG 92100", "+33 6 85 45 76 32");
+      System.out.println("Adresse client: " + c1.getCustomerAddress());
    }
 }
