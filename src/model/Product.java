@@ -29,10 +29,16 @@ public class Product {
 
     //Setters
     public void setProductName(String newProductName) {
+        if (newProductName == null || newProductName.trim().isEmpty()) {
+            throw new IllegalArgumentException("product name cannot be empty");
+        }
         this.productName = newProductName;
     }
 
     public void setProductRate(double newProductRate) {
+        if (newProductRate < 0) {
+            throw new IllegalArgumentException("product rate cannot be below 0");
+        }
         this.productRate = newProductRate;
     }
 }
