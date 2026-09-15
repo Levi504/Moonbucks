@@ -1,6 +1,6 @@
 ﻿*.class
 .vscode
-*.txt
+todo.txt
 Thumbs.db
 desktop.ini
 .DS_Store
