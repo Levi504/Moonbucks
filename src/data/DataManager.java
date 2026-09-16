@@ -6,14 +6,40 @@ import java.nio.charset.StandardCharsets;
 import java.io.IOException;
 
 public class DataManager {
-    //Fields
-    private static final String CUSTOMER_FILE_PATH = "data/customers.txt";
-    private static final String PRODUCT_FILE_PATH = "data/products.txt";
-    private static final String ORDER_FILE_PATH = "data/orders.txt";
-
     //Methods
-    public static void add() {
+    public static String generateNextID(EntityType type) {
+        String path = getFilePath(type);
+        String prefix = getPrefix(type);
+        File file = new File(path);
 
+        int maxID = 0;
+
+        if (file.exists()) {
+            try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
+                while (scanner.hasNextLine()) {
+                    String line = scanner.nextLine();
+                    if (!line.trim().isEmpty()) {
+                        String[] parts = line.split(",");
+                        String existingID = parts[0];
+                        String numberPart = existingID.substring(1);
+                        int currentID = Integer.parseInt(numberPart);
+
+                        if (currentID > maxID) {
+                            maxID = currentID;
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Error reading file for ID generation");
+            }
+        }
+
+        int nextID = maxID + 1;
+        return prefix + String.format("%03d", nextID);
+    }
+
+    public static void add() {
+        
     }
 
     public static void delete() {
@@ -24,20 +50,9 @@ public class DataManager {
 
     }
 
-    public static String pathSetter(EntityType type){
-        String path = "";
-        if (type == EntityType.CUSTOMER) {
-            path = CUSTOMER_FILE_PATH;
-        } else if (type == EntityType.PRODUCT) {
-            path = PRODUCT_FILE_PATH;
-        } else if (type == EntityType.ORDER) {
-            path = ORDER_FILE_PATH;
-        }
-        return path;
-    }
 
     public static void view(EntityType type) {
-        String path = pathSetter(type);
+        String path = type.getFilePath();
         File file = new File(path);
 
         if (!file.exists()) {
@@ -57,8 +72,9 @@ public class DataManager {
         }
     }
 
+
     public static String search(EntityType type, String typeID) {
-        String path = pathSetter(type);
+        String path = type.getFilePath();
         File file = new File(path);
 
         if (!file.exists()) {
