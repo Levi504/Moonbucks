@@ -1,4 +1,3 @@
-C002,Marie Curie,45 Avenue des Sciences,0987654321
-C003,Thomas Edison,78 Boulevard de l'Innovation,0612345678
-C004,Ada Lovelace,15 Rue du Code,0698765432
-C001,Jean Dupont MODIFIE,Nouvelle Adresse,0123456789
+C001,Levi,123 Albert street,0695941983
+C002,Michael Jackson,50 Wonderland Av.,0678458575
+C003,Lebron James,85 MLK Av.,0524859636

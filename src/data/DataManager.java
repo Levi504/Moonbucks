@@ -2,442 +2,301 @@ package data;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.PrintWriter;
-import java.util.Scanner;
-import java.nio.charset.StandardCharsets;
 import java.io.IOException;
-
-import model.Customer;
-import model.Product;
-import model.Order;
-import model.OrderItem;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Scanner;
+import model.*;
 
 public class DataManager {
 
-    //Helper Methods
+    // ========================================
+    // HELPER METHODS
+    // ========================================
+
     public static String generateNextID(EntityType type) {
-        String path = type.getFilePath();
-        String prefix = type.getPrefix();
-        File file = new File(path);
+        File file = new File(type.getFilePath());
+        if (!file.exists()) return null;
 
         int maxID = 0;
-
-        if (!file.exists()) {
-            System.out.println("No " + type + " file found");
-            return null;
-        }
-
         try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
             while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-                if (!line.trim().isEmpty()) {
-                    String[] parts = line.split(",");
-                    String existingID = parts[0];
-                    String numberPart = existingID.substring(1);
-                    int currentID = Integer.parseInt(numberPart);
-
-                    if (currentID > maxID) {
-                        maxID = currentID;
-                    }
+                String line = scanner.nextLine().trim();
+                if (!line.isEmpty()) {
+                    int currentID = Integer.parseInt(line.split(",")[0].substring(1));
+                    if (currentID > maxID) maxID = currentID;
                 }
             }
         } catch (IOException e) {
             System.out.println("Error reading file for ID generation");
         }
-
-        int nextID = maxID + 1;
-        return prefix + String.format("%03d", nextID);
+        return type.getPrefix() + String.format("%03d", maxID + 1);
     }
-
 
     public static boolean customerExistsByPhone(String phone) {
-        if (phone == null || phone.trim().isEmpty()) {
-            return false;
-        }
+        return existsInFile(EntityType.CUSTOMER, phone, 3, false);
+    }
 
-        File file = new File(EntityType.CUSTOMER.getFilePath());
+    public static boolean productExistsByName(String name) {
+        return existsInFile(EntityType.PRODUCT, name, 1, true);
+    }
 
-        if (!file.exists()) {
-            return false;
-        }
+    public static boolean customerExistsByID(String id) {
+        return searchSilent(EntityType.CUSTOMER, id) != null;
+    }
+
+    /**
+     * Generic method to check if a value exists in a file at a specific column
+     */
+    private static boolean existsInFile(EntityType type, String value, int column, boolean ignoreCase) {
+        if (value == null || value.trim().isEmpty()) return false;
+        File file = new File(type.getFilePath());
+        if (!file.exists()) return false;
 
         try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
             while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-
-                if (line.trim().isEmpty()) {
-                    continue;
-                }
-                
-                String[] parts = line.split(",");
-                
-                if (parts.length >= 4) {
-                    String existingPhone = parts[3].trim();
-                    
-                    if (existingPhone.equals(phone)) {
-                        return true;
+                String line = scanner.nextLine().trim();
+                if (!line.isEmpty()) {
+                    String[] parts = line.split(",");
+                    if (parts.length > column) {
+                        String existing = parts[column].trim();
+                        if (ignoreCase ? existing.equalsIgnoreCase(value) : existing.equals(value)) {
+                            return true;
+                        }
                     }
                 }
             }
         } catch (IOException e) {
-            System.out.println("Error reading customer file: " + e.getMessage());
+            System.out.println("Error reading " + type + " file: " + e.getMessage());
         }
-
         return false;
     }
 
-
-    public static boolean productExistsByName(String productName) {
-        if (productName == null || productName.trim().isEmpty()) {
-            return false;
-        }
-
-        File file = new File(EntityType.PRODUCT.getFilePath());
-
-        if (!file.exists()) {
-            return false;
-        }
+    /**
+     * Silent search - no console output
+     */
+    public static String searchSilent(EntityType type, String id) {
+        File file = new File(type.getFilePath());
+        if (!file.exists()) return null;
 
         try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-
-                if (line.trim().isEmpty()) {
-                    continue;
-                }
-
-                String[] parts = line.split(",");
-
-                if (parts.length >= 2) {
-                    String existingName = parts[1].trim();
-                    if (existingName.equalsIgnoreCase(productName)) {
-                        return true;
-                    }
-                }
+                if (line.startsWith(id + ",")) return line;
             }
         } catch (IOException e) {
-            System.out.println("Error reading product file: " + e.getMessage());
+            return null;
         }
-
-        return false;
+        return null;
     }
 
+    // ========================================
+    // ADD METHODS
+    // ========================================
 
-    public static boolean customerExistsByID(String customerID) {
-        return search(EntityType.CUSTOMER, customerID) != null;
-    }
-
-
-    private static void deleteOrderItems(String orderID) {
-        String path = EntityType.ORDER_ITEM.getFilePath();
-        File originalFile = new File(path);
-        File tempFile = new File(path + ".tmp");
-
-        if (!originalFile.exists()) {
-            return;
-        }
-
-        try (Scanner scanner = new Scanner(originalFile, StandardCharsets.UTF_8);
-            PrintWriter writer = new PrintWriter(new FileWriter(tempFile), true)) {
-
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-
-                if (line.trim().isEmpty() || !line.startsWith(orderID + ",")) {
-                    writer.println(line);
-                }
-            }
-
-        } catch (IOException e) {
-            System.out.println("Erreur lors de la suppression des OrderItems : " + e.getMessage());
-            return;
-        }
-
-        originalFile.delete();
-        tempFile.renameTo(originalFile);
-    }
-
-
-    //Methods
     public static boolean add(Customer customer) {
         if (customerExistsByPhone(customer.getCustomerContact())) {
-            System.out.println("Erreur : Un client avec ce numéro de téléphone existe déjà.");
+            System.out.println("Error: A customer with this phone number already exists.");
             return false;
         }
-        
         String newID = generateNextID(EntityType.CUSTOMER);
-        
-        try (PrintWriter writer = new PrintWriter(new FileWriter(EntityType.CUSTOMER.getFilePath(), true), true)) {
-
-            File file = new File(EntityType.CUSTOMER.getFilePath());
-
-            String line = newID + "," 
-                        + customer.getCustomerName() + "," 
-                        + customer.getCustomerAddress() + "," 
-                        + customer.getCustomerContact();
-            writer.println(line);
-
-            System.out.println("Client ajouté avec succès : " + newID);
-            return true;
-        } catch (IOException e) {
-            System.out.println("Erreur lors de l'écriture : " + e.getMessage());
-            return false;
-        }
+        String line = newID + "," + customer.getCustomerName() + "," 
+                    + customer.getCustomerAddress() + "," + customer.getCustomerContact();
+        return writeToFile(EntityType.CUSTOMER, line, "Customer added successfully: " + newID);
     }
-
 
     public static boolean add(Product product) {
         if (productExistsByName(product.getProductName())) {
-            System.out.println("Erreur : Un produit avec ce nom existe déjà.");
+            System.out.println("Error: A product with this name already exists.");
             return false;
         }
-
         String newID = generateNextID(EntityType.PRODUCT);
-
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.PRODUCT.getFilePath(), true), true)) {
-            
-            String line = newID + ","
-                    + product.getProductName() + ","
-                    + product.getProductRate() + ","
-                    + product.getPackageCharge() + ","
-                    + product.getType();
-            writer.println(line);
-
-            System.out.println("Produit ajouté avec succès : " + newID + " (" + product.getType() + ")");
-            return true;
-        } catch (IOException e) {
-            System.out.println("Erreur lors de l'écriture : " + e.getMessage());
-            return false;
-        }
+        String line = newID + "," + product.getProductName() + "," 
+                    + product.getProductRate() + "," + product.getPackageCharge() + "," + product.getType();
+        return writeToFile(EntityType.PRODUCT, line, "Product added successfully: " + newID + " (" + product.getType() + ")");
     }
-
 
     public static boolean add(Order order) {
         if (order.getNumberOfItems() == 0) {
-            System.out.println("Erreur : Une commande doit contenir au moins un produit.");
+            System.out.println("Error: An order must contain at least one product.");
             return false;
         }
-
         String customerID = order.getCustomer().getCustomerID();
         if (!customerExistsByID(customerID)) {
-            System.out.println("Erreur : Le client " + customerID + " n'existe pas.");
+            System.out.println("Error: Customer " + customerID + " does not exist.");
             return false;
         }
 
         String newOrderID = generateNextID(EntityType.ORDER);
-
         double total = order.calculateTotal();
+        
+        // Write order
+        String orderLine = newOrderID + "," + customerID + "," + order.getNumberOfItems() + "," 
+                         + String.format("%.2f", total).replace(",", ".");
+        if (!writeToFile(EntityType.ORDER, orderLine, null)) return false;
 
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.ORDER.getFilePath(), true), true)) {
-            
-            String line = newOrderID + ","
-                    + customerID + ","
-                    + order.getNumberOfItems() + ","
-                    + String.format("%.2f", total).replace(",", ".");
-            writer.println(line);
-        } catch (IOException e) {
-            System.out.println("Erreur lors de l'écriture dans orders.txt : " + e.getMessage());
-            return false;
-        }
-
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.ORDER_ITEM.getFilePath(), true), true)) {
-            
+        // Write order items
+        try (PrintWriter writer = new PrintWriter(new FileWriter(EntityType.ORDER_ITEM.getFilePath(), true), true)) {
             for (OrderItem item : order.getOrderItems()) {
-                // Format : OrderID,ProductID,Quantity
-                String line = newOrderID + ","
-                        + item.getProduct().getProductID() + ","
-                        + item.getQuantity();
-                writer.println(line);
+                writer.println(newOrderID + "," + item.getProduct().getProductID() + "," + item.getQuantity());
             }
         } catch (IOException e) {
-            System.out.println("Erreur lors de l'écriture dans order_items.txt : " + e.getMessage());
+            System.out.println("Error writing order items: " + e.getMessage());
             return false;
         }
 
-        System.out.println("Commande ajoutée avec succès : " + newOrderID + " (Total : " + String.format("%.2f", total).replace(",", ".") + ")");
+        System.out.println("Order added successfully: " + newOrderID + " (Total: " + String.format("%.2f", total).replace(",", ".") + ")");
         return true;
     }
 
-    public static boolean delete(EntityType type, String id) {
-        String found = search(type, id);
-        if (found == null) {
-            System.out.println("Erreur : " + type + " avec l'ID " + id + " n'existe pas.");
+    /**
+     * Generic method to write a line to a file
+     */
+    private static boolean writeToFile(EntityType type, String line, String successMessage) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(type.getFilePath(), true), true)) {
+            writer.println(line);
+            if (successMessage != null) System.out.println(successMessage);
+            return true;
+        } catch (IOException e) {
+            System.out.println("Error writing to " + type + " file: " + e.getMessage());
             return false;
         }
+    }
 
-        String path = type.getFilePath();
-        File originalFile = new File(path);
-        File tempFile = new File(path + ".tmp");
+    // ========================================
+    // DELETE METHODS
+    // ========================================
+
+    public static boolean delete(EntityType type, String id) {
+        if (searchSilent(type, id) == null) {
+            System.out.println("Error: " + type + " with ID " + id + " does not exist.");
+            return false;
+        }
+        if (!deleteFromFile(type, id)) return false;
+        if (type == EntityType.ORDER) deleteOrderItems(id);
+        System.out.println(type + " " + id + " deleted successfully.");
+        return true;
+    }
+
+    private static void deleteOrderItems(String orderID) {
+        deleteFromFile(EntityType.ORDER_ITEM, orderID);
+    }
+
+    /**
+     * Generic method to delete lines starting with an ID from a file
+     */
+    private static boolean deleteFromFile(EntityType type, String id) {
+        File originalFile = new File(type.getFilePath());
+        File tempFile = new File(type.getFilePath() + ".tmp");
 
         try (Scanner scanner = new Scanner(originalFile, StandardCharsets.UTF_8);
-            PrintWriter writer = new PrintWriter(new FileWriter(tempFile), true)) {
-
+             PrintWriter writer = new PrintWriter(new FileWriter(tempFile), true)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-
                 if (line.trim().isEmpty() || !line.startsWith(id + ",")) {
                     writer.println(line);
                 }
             }
-
         } catch (IOException e) {
-            System.out.println("Erreur lors de la lecture : " + e.getMessage());
+            System.out.println("Error deleting from " + type + " file: " + e.getMessage());
             return false;
         }
 
         originalFile.delete();
         tempFile.renameTo(originalFile);
-
-        if (type == EntityType.ORDER) {
-            deleteOrderItems(id);
-        }
-
-        System.out.println(type + " " + id + " supprimé avec succès.");
         return true;
     }
 
+    // ========================================
+    // EDIT METHODS
+    // ========================================
 
     public static boolean edit(Customer customer) {
-        String customerID = customer.getCustomerID();
-
-        if (!customerExistsByID(customerID)) {
-            System.out.println("Erreur : Le client " + customerID + " n'existe pas.");
+        String id = customer.getCustomerID();
+        String existingLine = searchSilent(EntityType.CUSTOMER, id);
+        
+        if (existingLine == null) {
+            System.out.println("Error: Customer " + id + " does not exist.");
             return false;
         }
 
-        String existingLine = search(EntityType.CUSTOMER, customerID);
         String oldPhone = existingLine.split(",")[3].trim();
         String newPhone = customer.getCustomerContact();
-
         if (!oldPhone.equals(newPhone) && customerExistsByPhone(newPhone)) {
-            System.out.println("Erreur : Un autre client utilise déjà ce numéro de téléphone.");
+            System.out.println("Error: Another customer already uses this phone number.");
             return false;
         }
 
-        delete(EntityType.CUSTOMER, customerID);
-
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.CUSTOMER.getFilePath(), true), true)) {
-            String line = customerID + ","
-                    + customer.getCustomerName() + ","
-                    + customer.getCustomerAddress() + ","
-                    + customer.getCustomerContact();
-            writer.println(line);
-            System.out.println("Client " + customerID + " modifié avec succès.");
-            return true;
-        } catch (IOException e) {
-            System.out.println("Erreur lors de la modification : " + e.getMessage());
-            return false;
-        }
+        delete(EntityType.CUSTOMER, id);
+        String line = id + "," + customer.getCustomerName() + "," 
+                    + customer.getCustomerAddress() + "," + customer.getCustomerContact();
+        return writeToFile(EntityType.CUSTOMER, line, "Customer " + id + " modified successfully.");
     }
-
 
     public static boolean edit(Product product) {
-        String productID = product.getProductID();
-
-        // Étape 1 : Vérifier que le produit existe
-        String existingLine = search(EntityType.PRODUCT, productID);
+        String id = product.getProductID();
+        String existingLine = searchSilent(EntityType.PRODUCT, id);
+        
         if (existingLine == null) {
-            System.out.println("Erreur : Le produit " + productID + " n'existe pas.");
+            System.out.println("Error: Product " + id + " does not exist.");
             return false;
         }
 
-        // Étape 2 : Vérifier que le nouveau nom n'est pas déjà utilisé par un AUTRE produit
         String oldName = existingLine.split(",")[1].trim();
         String newName = product.getProductName();
-
         if (!oldName.equalsIgnoreCase(newName) && productExistsByName(newName)) {
-            System.out.println("Erreur : Un autre produit porte déjà ce nom.");
+            System.out.println("Error: Another product already has this name.");
             return false;
         }
 
-        // Étape 3 : Supprimer l'ancien produit
-        delete(EntityType.PRODUCT, productID);
-
-        // Étape 4 : Ajouter le nouveau produit (avec le même ID)
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.PRODUCT.getFilePath(), true), true)) {
-            String line = productID + ","
-                    + product.getProductName() + ","
-                    + product.getProductRate() + ","
-                    + product.getPackageCharge() + ","
-                    + product.getType();
-            writer.println(line);
-            System.out.println("Produit " + productID + " modifié avec succès.");
-            return true;
-        } catch (IOException e) {
-            System.out.println("Erreur lors de la modification : " + e.getMessage());
-            return false;
-        }
+        delete(EntityType.PRODUCT, id);
+        String line = id + "," + product.getProductName() + "," + product.getProductRate() + "," 
+                    + product.getPackageCharge() + "," + product.getType();
+        return writeToFile(EntityType.PRODUCT, line, "Product " + id + " modified successfully.");
     }
 
-
     public static boolean edit(Order order) {
-        String orderID = order.getOrderID();
-
-        // Étape 1 : Vérifier que la commande existe
-        if (search(EntityType.ORDER, orderID) == null) {
-            System.out.println("Erreur : La commande " + orderID + " n'existe pas.");
+        String id = order.getOrderID();
+        if (searchSilent(EntityType.ORDER, id) == null) {
+            System.out.println("Error: Order " + id + " does not exist.");
             return false;
         }
-
-        // Étape 2 : Vérifier que la commande a au moins un item
         if (order.getNumberOfItems() == 0) {
-            System.out.println("Erreur : Une commande doit contenir au moins un produit.");
+            System.out.println("Error: An order must contain at least one product.");
             return false;
         }
-
-        // Étape 3 : Vérifier que le client existe
         String customerID = order.getCustomer().getCustomerID();
         if (!customerExistsByID(customerID)) {
-            System.out.println("Erreur : Le client " + customerID + " n'existe pas.");
+            System.out.println("Error: Customer " + customerID + " does not exist.");
             return false;
         }
 
-        // Étape 4 : Supprimer l'ancienne commande (et ses OrderItems en cascade)
-        delete(EntityType.ORDER, orderID);
-
-        // Étape 5 : Calculer le nouveau total
+        delete(EntityType.ORDER, id);
         double total = order.calculateTotal();
 
-        // Étape 6 : Écrire la nouvelle commande dans orders.txt
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.ORDER.getFilePath(), true), true)) {
-            String line = orderID + ","
-                    + customerID + ","
-                    + order.getNumberOfItems() + ","
-                    + String.format("%.2f", total).replace(",", ".");
-            writer.println(line);
-        } catch (IOException e) {
-            System.out.println("Erreur lors de la modification : " + e.getMessage());
-            return false;
-        }
+        String orderLine = id + "," + customerID + "," + order.getNumberOfItems() + "," 
+                         + String.format("%.2f", total).replace(",", ".");
+        if (!writeToFile(EntityType.ORDER, orderLine, null)) return false;
 
-        // Étape 7 : Écrire les nouveaux OrderItems dans order_items.txt
-        try (PrintWriter writer = new PrintWriter(
-                new FileWriter(EntityType.ORDER_ITEM.getFilePath(), true), true)) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(EntityType.ORDER_ITEM.getFilePath(), true), true)) {
             for (OrderItem item : order.getOrderItems()) {
-                String line = orderID + ","
-                        + item.getProduct().getProductID() + ","
-                        + item.getQuantity();
-                writer.println(line);
+                writer.println(id + "," + item.getProduct().getProductID() + "," + item.getQuantity());
             }
         } catch (IOException e) {
-            System.out.println("Erreur lors de la modification des OrderItems : " + e.getMessage());
+            System.out.println("Error modifying order items: " + e.getMessage());
             return false;
         }
 
-        System.out.println("Commande " + orderID + " modifiée avec succès. (Total : " + String.format("%.2f", total).replace(",", ".") + ")");
+        System.out.println("Order " + id + " modified successfully. (Total: " + String.format("%.2f", total).replace(",", ".") + ")");
         return true;
     }
 
-    public static void view(EntityType type) {
-        String path = type.getFilePath();
-        File file = new File(path);
+    // ========================================
+    // VIEW AND SEARCH METHODS
+    // ========================================
 
+    public static void view(EntityType type) {
+        File file = new File(type.getFilePath());
         if (!file.exists()) {
             System.out.println("No " + type + " file found");
             return;
@@ -445,22 +304,16 @@ public class DataManager {
 
         try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
             System.out.println("=====" + type + " List=====");
-
             while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-                System.out.println(line);
+                System.out.println(scanner.nextLine());
             }
-            scanner.close();
         } catch (IOException e) {
             System.out.println("No " + type + " file found");
         }
     }
 
-
     public static String search(EntityType type, String typeID) {
-        String path = type.getFilePath();
-        File file = new File(path);
-
+        File file = new File(type.getFilePath());
         if (!file.exists()) {
             System.out.println("No " + type + " file found");
             return null;
@@ -475,7 +328,6 @@ public class DataManager {
                     return line;
                 }
             }
-            scanner.close();
         } catch (IOException e) {
             System.out.println("No " + type + " file found");
             return null;
