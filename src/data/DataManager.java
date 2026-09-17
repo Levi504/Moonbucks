@@ -10,6 +10,7 @@ import java.io.IOException;
 import model.Customer;
 import model.Product;
 import model.Order;
+import model.OrderItem;
 
 public class DataManager {
 
@@ -121,6 +122,11 @@ public class DataManager {
         return false;
     }
 
+
+    public static boolean customerExistsByID(String customerID) {
+        return search(EntityType.CUSTOMER, customerID) != null;
+    }
+
     //Methods
     public static boolean add(Customer customer) {
         if (customerExistsByPhone(customer.getCustomerContact())) {
@@ -176,8 +182,52 @@ public class DataManager {
     }
 
 
-    public static void add(Order order) {
-        
+    public static boolean add(Order order) {
+        if (order.getNumberOfItems() == 0) {
+            System.out.println("Erreur : Une commande doit contenir au moins un produit.");
+            return false;
+        }
+
+        String customerID = order.getCustomer().getCustomerID();
+        if (!customerExistsByID(customerID)) {
+            System.out.println("Erreur : Le client " + customerID + " n'existe pas.");
+            return false;
+        }
+
+        String newOrderID = generateNextID(EntityType.ORDER);
+
+        double total = order.calculateTotal();
+
+        try (PrintWriter writer = new PrintWriter(
+                new FileWriter(EntityType.ORDER.getFilePath(), true), true)) {
+            
+            String line = newOrderID + ","
+                    + customerID + ","
+                    + order.getNumberOfItems() + ","
+                    + String.format("%.2f", total).replace(",", ".");
+            writer.println(line);
+        } catch (IOException e) {
+            System.out.println("Erreur lors de l'écriture dans orders.txt : " + e.getMessage());
+            return false;
+        }
+
+        try (PrintWriter writer = new PrintWriter(
+                new FileWriter(EntityType.ORDER_ITEM.getFilePath(), true), true)) {
+            
+            for (OrderItem item : order.getOrderItems()) {
+                // Format : OrderID,ProductID,Quantity
+                String line = newOrderID + ","
+                        + item.getProduct().getProductID() + ","
+                        + item.getQuantity();
+                writer.println(line);
+            }
+        } catch (IOException e) {
+            System.out.println("Erreur lors de l'écriture dans order_items.txt : " + e.getMessage());
+            return false;
+        }
+
+        System.out.println("Commande ajoutée avec succès : " + newOrderID + " (Total : " + String.format("%.2f", total).replace(",", ".") + ")");
+        return true;
     }
 
     public static void delete() {

@@ -3,7 +3,8 @@ package data;
 public enum EntityType {
     CUSTOMER("data/customers.txt", "C"),
     PRODUCT("data/products.txt", "P"),
-    ORDER("data/orders.txt", "O");
+    ORDER("data/orders.txt", "O"),
+    ORDER_ITEM("data/order_items.txt", "OI");
     
     private final String filePath;
     private final String prefix;

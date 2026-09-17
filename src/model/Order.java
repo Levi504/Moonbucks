@@ -29,6 +29,10 @@ public class Order {
         return orderItems;
     }
 
+    public int getNumberOfItems() {
+        return orderItems.size();
+    }
+
     //Setters
     public void setOrderID(String newOrderID) {
         if (newOrderID == null || newOrderID.trim().isEmpty()) {
@@ -57,5 +61,14 @@ public class Order {
             throw new IllegalArgumentException("OrderItem is empty or not in this order");
         }
         this.orderItems.remove(existingOrderItem);
+    }
+
+    public double calculateTotal() {
+        double total = 0.0;
+        for (OrderItem item : orderItems) {
+            Product p = item.getProduct();
+            total += (p.getProductRate() + p.getPackageCharge()) * item.getQuantity();
+        }
+        return total;
     }
 }
