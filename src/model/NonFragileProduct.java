@@ -1,29 +1,14 @@
 package model;
 
 public class NonFragileProduct extends Product {
-    //Fields
-    private double packageCharge;
+    public static final double NON_FRAGILE_CHARGE = 2.00;
 
-    //Constructor
-    public NonFragileProduct(String productID,
-                        String productName,
-                        double productRate,
-                        double packageCharge) {
-        super(productID, productName, productRate);
-        setPackageCharge(packageCharge);
-        setProductRate(getProductRate() + packageCharge);
+    public NonFragileProduct(String productID, String productName, double productRate) {
+        super(productID, productName, productRate, NON_FRAGILE_CHARGE);
     }
 
-    //Getters
-    public double getPackageCharge() {
-        return packageCharge;
-    }
-
-    //Setters
-    public void setPackageCharge(double newPackageCharge) {
-        if (newPackageCharge < 0) {
-            throw new IllegalArgumentException("Package Charge cannot be below 0");
-        }
-        this.packageCharge = newPackageCharge;
+    @Override
+    public String getType() {
+        return "NON_FRAGILE";
     }
 }

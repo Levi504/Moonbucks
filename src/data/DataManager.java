@@ -85,6 +85,42 @@ public class DataManager {
         return false;
     }
 
+
+    public static boolean productExistsByName(String productName) {
+        if (productName == null || productName.trim().isEmpty()) {
+            return false;
+        }
+
+        File file = new File(EntityType.PRODUCT.getFilePath());
+
+        if (!file.exists()) {
+            return false;
+        }
+
+        try (Scanner scanner = new Scanner(file, StandardCharsets.UTF_8)) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+
+                String[] parts = line.split(",");
+
+                if (parts.length >= 2) {
+                    String existingName = parts[1].trim();
+                    if (existingName.equalsIgnoreCase(productName)) {
+                        return true;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error reading product file: " + e.getMessage());
+        }
+
+        return false;
+    }
+
     //Methods
     public static boolean add(Customer customer) {
         if (customerExistsByPhone(customer.getCustomerContact())) {
@@ -113,8 +149,30 @@ public class DataManager {
     }
 
 
-    public static void add(Product product) {
-        
+    public static boolean add(Product product) {
+        if (productExistsByName(product.getProductName())) {
+            System.out.println("Erreur : Un produit avec ce nom existe déjà.");
+            return false;
+        }
+
+        String newID = generateNextID(EntityType.PRODUCT);
+
+        try (PrintWriter writer = new PrintWriter(
+                new FileWriter(EntityType.PRODUCT.getFilePath(), true), true)) {
+            
+            String line = newID + ","
+                    + product.getProductName() + ","
+                    + product.getProductRate() + ","
+                    + product.getPackageCharge() + ","
+                    + product.getType();
+            writer.println(line);
+
+            System.out.println("Produit ajouté avec succès : " + newID + " (" + product.getType() + ")");
+            return true;
+        } catch (IOException e) {
+            System.out.println("Erreur lors de l'écriture : " + e.getMessage());
+            return false;
+        }
     }
 
 
